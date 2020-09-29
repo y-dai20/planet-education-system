@@ -1,0 +1,602 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>4618081：惑星の運動</title>
+</head>
+<body>
+    <h1>4618081：惑星の運動学習システム</h1>
+    <canvas id="myCanvas" width="1000" height="500"></canvas>
+    <br>
+    <input type="button" id="btnAnime" value="アニメーション開始"
+           onclick="startAnime()">
+    <input type="button" id="btnStep" value="1日進む" onclick="stepOnce()">
+    <input type="button" id="btnSpeedUp" value="速度を早くする" onclick="speedUp()">
+    <input type="button" id="btnSpeedDown" value="速度を遅くする" onclick="speedDown()">
+    <input type="button" id="btnReset" value="リセット" onclick="init()">
+    <form name="planetSelection"> 
+        <label>
+            <input type="checkbox" name="planet" value="mercury" onclick="selectPlanet()">水星
+        </label>
+        <label>
+            <input type="checkbox" name="planet" value="venus" onclick="selectPlanet()">金星
+        </label>
+        <label>
+            <input type="checkbox" name="planet" value="earth" checked="true" onclick="selectPlanet()">地球(&月)
+        </label>
+        <label>
+            <input type="checkbox" name="planet" value="mars" onclick="selectPlanet()">火星
+        </label>
+        <label>
+            <input type="checkbox" name="planet" value="jupiter" onclick="selectPlanet()">木星
+        </label>
+        <label>
+            <input type="checkbox" name="planet" value="saturn" onclick="selectPlanet()">土星
+        </label>
+        <label>
+            <input type="checkbox" name="planet" value="uranus" onclick="selectPlanet()">天王星
+        </label>
+        <label>
+            <input type="checkbox" name="planet" value="neptune" onclick="selectPlanet()">海王星
+        </label>
+    </form>
+    <div>
+        <input type="button" value="全選択" onclick="allSelect()">
+        <input type="button" value="全解除" onclick="allNotSelect()">
+        <input type="button" value="地球のみ選択" onclick="onlyEarth()">
+    </div>
+    <div> 
+        <input type="button" id="btnShowNoodles" value="面積を描画" onclick="noodles()">
+        <input type="button" id="btnShowTrack" value="惑星の軌道を描画" onclick="showTrack()">
+    </div>
+    <table border="1" id="table" width="1000">
+        <tr>
+            <th></th>
+            <th>水星</th>
+            <th>金星</th>
+            <th>地球</th>
+            <th>火星</th>
+            <th>木星</th>
+            <th>土星</th>
+            <th>天皇星</th>
+            <th>海王星</th>
+        </tr>
+        <tr>
+            <th>長半径</th>
+            <th>0.583e11</th>
+            <th>1.077e11</th>
+            <th>1.496e11</th>
+            <th>2.274e11</th>
+            <th>7.779e11</th>
+            <th>14.362e11</th>
+            <th>28.723e11</th>
+            <th>45.0296e11</th>
+        </tr>
+        <tr>
+            <th>周期(年)</th>
+            <th>0.24</th>
+            <th>0.62</th>
+            <th>1.00</th>
+            <th>1.9</th>
+            <th>11.9</th>
+            <th>29.5</th>
+            <th>84.0</th>
+            <th>164.8</th>
+        </tr>
+    </table>
+    <script>
+        const canvas = document.getElementById('myCanvas');
+        const ctx = canvas.getContext('2d');
+
+        const canvas_size = {x:1000, y:500};
+        const center = {x: 500, y:250};
+        let planets;
+        let planets_name = ["mercury", "venus", "earth", "mars", "jupiter", "saturn", "uranus", "neptune"];
+        let month;
+        let move;
+        const G = 6.67;
+        const M_SUN = 1.988e19; 
+        const M_EARTH = 5.972e13;
+        const STEP = 86400;   // 時間刻み幅
+        let time;               // 経過時間
+        let anime;              // アニメーションフラグ
+        let animeOnce;          // 1ステップアニメーションフラグ
+        let zoom;
+        let show_noodles;
+        let select_planets;
+        let show_track;
+        let speed;
+        let base_cycle = 2.055e-7;
+
+        // 初期化処理
+        function init() {
+            anime = false;
+            animeOnce = false;
+            time = 0;
+            speed = 1;
+            show_noodles = false;
+            show_track = false;
+
+            month = {r:3.844e8, theta:0, v_r:0, v_theta:2.664e-6, color:'rgb(173, 89, 8)', size:3};
+            planets = {
+                mercury:{init:0.583e11, init_theta:8.3e-7, r:0.583e11, theta:0, v_r:0, v_theta:8.3e-7, color:'rgb(89%, 71.5%, 27.7%)', size:4, mul:2.4},
+                venus:{init:1.077e11,init_theta:3.213e-7,r:1.077e11, theta:0, v_r:0, v_theta:3.213e-7, color:'rgb(199, 150, 27)', size:4, mul:6.2},
+                earth:{init:1.496e11, init_theta:1.992e-7, r:1.496e11, theta:0,v_r:0, v_theta:1.992e-7, color:'rgb(80, 98, 234)', size:4, mul:10},
+                mars:{init:2.274e11, init_theta:1.048e-7,r:2.274e11, theta:0, v_r:0, v_theta:1.048e-7, color:'rgb(202, 132, 63)', size:4, mul:19},
+                jupiter:{init:7.779e11, init_theta:1.674e-8,r:7.779e11, theta:0, v_r:0, v_theta:1.674e-8, color:'rgb(250, 221, 192)', size:10, mul:119},
+                saturn:{init:14.362e11, init_theta:6.753e-9, r:14.362e11, theta:0, v_r:0, v_theta:6.753e-9, color:'rgb(214, 176, 138)', size:9, mul:295},
+                uranus:{init:28.723e11, init_theta:2.371e-9, r:28.723e11, theta:0, v_r:0, v_theta:2.371e-9, color:'rgb(136, 212, 224)', size:6, mul:840},
+                neptune:{init:45.0296e11, init_theta:1.209e-9, r:45.0296e11, theta:0, v_r:0, v_theta:1.209e-9, color:'rgb(29, 118, 189)', size:6, mul:1648},
+            };
+
+            let table = document.getElementById('table');
+            let index = table.rows['length'];
+            if (index > 3) {
+                let de1 = table.deleteRow(-1);
+                let de2 = table.deleteRow(-1);
+            }
+            document.getElementById('btnSpeedUp').disabled = false;
+            document.getElementById('btnSpeedDown').disabled = false;
+            document.getElementById('btnShowTrack').disabled = false;
+            document.getElementById('btnShowNoodles').disabled = false;
+
+            document.getElementById('btnStep').value = "1日進む";
+            document.getElementById('btnShowTrack').value = "軌道の描画";
+            document.getElementById('btnShowNoodles').value = "面積描画";
+            document.getElementById('btnAnime').value = 'アニメーション開始';
+            document.getElementById('btnStep').disabled = false;
+            selectPlanet(); 
+        }
+
+        function drawPlanets() {
+            let k = zoom;
+            let j = 0;
+            if (move != 0) {
+                j = move;
+                k = planets['mars'].init / 150;
+            }
+
+            for (let i = 0; i < select_planets.length; i++) {
+                if (move !=0 && (select_planets[i] == 'venus' || select_planets[i] == 'mercury' || select_planets[i] == 'earth' || select_planets[i] == 'mars')) {
+                    ctx.beginPath();
+                    ctx.arc(center.x + j + planets[select_planets[i]].r * Math.cos(planets[select_planets[i]].theta)/k, center.y + planets[select_planets[i]].r * Math.sin(planets[select_planets[i]].theta) / k, planets[select_planets[i]].size, 0, 2 * Math.PI);
+                    ctx.fillStyle = planets[select_planets[i]].color;
+                    ctx.fill();
+                }
+                ctx.beginPath();
+                ctx.arc(center.x + planets[select_planets[i]].r * Math.cos(planets[select_planets[i]].theta)/zoom, center.y + planets[select_planets[i]].r * Math.sin(planets[select_planets[i]].theta) / zoom, planets[select_planets[i]].size, 0, 2 * Math.PI);
+                ctx.fillStyle = planets[select_planets[i]].color;
+                ctx.fill();
+
+                if (select_planets[i] == "earth") {
+                    let x = planets[select_planets[i]].r * Math.cos(planets[select_planets[i]].theta)/k;
+                    let y = planets[select_planets[i]].r * Math.sin(planets[select_planets[i]].theta)/k;
+                    ctx.beginPath();
+                    ctx.arc(center.x + j + x + month.r * Math.cos(month.theta) / k * 30, center.y + y + month.r * Math.sin(month.theta) / k * 30, month.size, 0, 2 * Math.PI);
+                    ctx.fillStyle = month.color;
+                    ctx.fill();
+                }
+            }
+
+            ctx.beginPath();
+            ctx.arc(center.x, center.y, 10, 0, 2 * Math.PI);
+            ctx.fillStyle = 'red';
+            ctx.fill();
+
+            if (move != 0) {
+                ctx.beginPath();
+                ctx.arc(center.x + move, center.y, 6.5, 0, 2 * Math.PI);
+                ctx.fillStyle = 'red';
+                ctx.fill();
+
+                k = planets['mars'].init/150;
+                ctx.beginPath();
+                ctx.setLineDash([2, 2]);
+                ctx.strokeStyle = "white";
+                ctx.moveTo(center.x, center.y + 10);
+                ctx.lineTo(600, 400+planets['mars'].size);
+                ctx.stroke();
+                ctx.beginPath();
+                ctx.setLineDash([2, 2]);
+                ctx.strokeStyle = "white";
+                ctx.moveTo(center.x, center.y -10);
+                ctx.lineTo(600, 100 - planets['mars'].size);
+                ctx.stroke();
+
+                max_x = center.x + move + planets['mars'].init / k + planets['mars'].size;
+                min_x = center.x + move - planets['mars'].init / k - planets['mars'].size;
+                max_y = center.y + planets['mars'].init / k + planets['mars'].size;
+                min_y = center.y - planets['mars'].init / k - planets['mars'].size;
+                drawVerticalLine(max_x, min_x, max_y, min_y, "white");
+                drawHorizontalLine(max_x, min_x, max_y, min_y, "white");
+            }
+        }
+
+        function drawPlanetsLine() {
+            ctx.beginPath();
+            ctx.setLineDash([2, 2]);
+            ctx.strokeStyle = "white";
+            ctx.moveTo(0, center.y);
+            ctx.lineTo(canvas_size.x, center.y);
+            ctx.stroke();
+
+            ctx.beginPath();
+            ctx.setLineDash([2, 2]);
+            ctx.strokeStyle = "white";
+            ctx.moveTo(center.x, 0);
+            ctx.lineTo(center.x, canvas_size.y);
+            ctx.stroke();
+
+            if (move != 0) {
+                ctx.beginPath();
+                ctx.setLineDash([2, 2]);
+                ctx.strokeStyle = "white";
+                ctx.moveTo(center.x + move, 0);
+                ctx.lineTo(center.x + move, canvas_size.y);
+                ctx.stroke();
+            }
+
+            let max_x, max_y, min_x, min_y, j, k;
+            for (let i = 0; i < select_planets.length; i++) {
+                j = 0;
+                k = zoom;
+                if (move !=0 && (select_planets[i] == 'venus' || select_planets[i] == 'mercury' || select_planets[i] == 'earth' || select_planets[i] == 'mars')) {
+                    j = move;
+                    k = planets['mars'].init / 150;
+                }
+                max_x = center.x + j + planets[select_planets[i]].init / k + planets[select_planets[i]].size;
+                min_x = center.x + j - planets[select_planets[i]].init / k - planets[select_planets[i]].size;
+                max_y = center.y + planets[select_planets[i]].init / k + planets[select_planets[i]].size;
+                min_y = center.y - planets[select_planets[i]].init / k - planets[select_planets[i]].size;
+                drawVerticalLine(max_x, min_x, max_y, min_y, planets[select_planets[i]].color);
+                drawHorizontalLine(max_x, min_x, max_y, min_y, planets[select_planets[i]].color); 
+            }
+        }
+
+        function drawVerticalLine(max_x, min_x, max_y, min_y,color) {
+            ctx.beginPath();
+            ctx.setLineDash([2, 2]);
+            ctx.strokeStyle = color;
+            ctx.moveTo(max_x, max_y);
+            ctx.lineTo(max_x, min_y);
+            ctx.stroke();
+
+            ctx.beginPath();
+            ctx.setLineDash([2, 2]);
+            ctx.strokeStyle = color;
+            ctx.moveTo(min_x, max_y);
+            ctx.lineTo(min_x, min_y);
+            ctx.stroke();
+        };
+
+        function drawHorizontalLine(max_x, min_x, max_y, min_y, color) {
+            ctx.beginPath();
+            ctx.setLineDash([2, 2]);
+            ctx.strokeStyle = color;
+            ctx.moveTo(max_x, max_y);
+            ctx.lineTo(min_x, max_y);
+            ctx.stroke();
+
+            ctx.beginPath();
+            ctx.setLineDash([2, 2]);
+            ctx.strokeStyle = color;
+            ctx.moveTo(max_x, min_y);
+            ctx.lineTo(min_x, min_y);
+            ctx.stroke();
+        }
+        // 描画処理
+        function draw() {
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.7)'; 
+
+            if (show_track == false) {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+            } else {
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.005)';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+            }
+            ctx.fillStyle = 'white';
+            
+            // 枠線の描画
+            ctx.strokeStyle = 'black';
+            ctx.lineWidth = 1;
+            ctx.strokeRect(0, 0, canvas.width, canvas.height);
+            
+            //惑星の描画
+            drawPlanets();
+
+            for (i = 0; i < planets_name.length; i++) {
+                if (planets[planets_name[i]].theta >= 2 * Math.PI) {
+                    planets[planets_name[i]].r = planets[planets_name[i]].init;
+                    planets[planets_name[i]].v_theta = planets[planets_name[i]].init_theta;
+                    planets[planets_name[i]].v_r = 0;
+                    planets[planets_name[i]].theta = 0;
+                }    
+            }
+            
+            if (show_track) {
+                drawPlanetsLine();
+            }
+
+            if (show_noodles) {
+                createTable();
+            }
+            
+            //面積の描画
+            let j, k;
+            if (show_noodles && select_planets.length > 0) {
+                for (let i = 0; i < select_planets.length; i++) {
+                    j = 0;
+                    k = zoom;
+                    if (move !=0 && (select_planets[i] == 'venus' || select_planets[i] == 'mercury' || select_planets[i] == 'earth' || select_planets[i] == 'mars')) {
+                        k = planets['mars'].init / 150;
+                        j = move;
+                    }
+                    showNoodles(planets[select_planets[i]], j, k);
+                }
+            }
+
+            // 経過時間の描画
+            if (show_track) {
+                ctx.clearRect(0,0,150,30);
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+                ctx.fillRect(0, 0, 150, 30);
+            }
+            ctx.font = '20px san-serif';
+            ctx.fillStyle = 'white';            
+            ctx.fillText(time.toFixed() + ' day', 10, 25);
+
+            if (anime || animeOnce) {
+                if (animeOnce) animeOnce = false;
+
+                for (let i = 0; i < planets_name.length; i++) {
+                    calPosition(planets[planets_name[i]], M_SUN);
+                }
+                calPosition(month, M_EARTH);
+
+                // 経過時間・経過フレームの計算
+                time += speed * STEP / 86400;
+
+                // 描画の更新
+                requestAnimationFrame(draw);
+            }
+        }
+
+        function createTable() {
+            let table = document.getElementById('table');
+            let index = table.rows['length'];
+            if (index > 3) {
+                let de1 = table.deleteRow(-1);
+                let de2 = table.deleteRow(-1);
+            }
+
+            let tr1 = table.insertRow(-1);
+            let td = tr1.insertCell(0);
+            td.innerHTML = "太陽からの距離";
+            let length;
+            for (let i=0; i < planets_name.length; i++) {
+                td = tr1.insertCell(i+1);
+                length = planets[planets_name[i]].r / 1e11;
+                td.innerHTML = length.toFixed(3) + "e11";
+            }
+
+            let tr2 = table.insertRow(-1);
+            td = tr2.insertCell(0);
+            td.innerHTML = "面積";
+            for (i=0; i < planets_name.length; i++) {
+                td = tr2.insertCell(i+1);
+                x = planets[planets_name[i]].r;
+                y = planets[planets_name[i]].r * Math.sin(planets[planets_name[i]].v_theta);
+                length = Math.abs((x *  y / 2) / 1e11);
+                td.innerHTML = length.toFixed(3) + "e11";
+            }
+        }
+
+        function showTrack() {
+            if (show_noodles) show_noodles = false;
+
+            if (show_track == false) {
+                show_track = true;
+                document.getElementById('btnShowTrack').value = "軌道の描画を解除";
+                document.getElementById('btnShowNoodles').disabled = true;
+            } else {
+                show_track = false;
+                document.getElementById('btnShowTrack').value = "軌道の描画";
+                document.getElementById('btnShowNoodles').disabled = false;
+            }
+
+            if (anime == false && animeOnce == false) {
+                draw();
+            }
+        }
+
+        function showNoodles(planet, j, k) {
+            ctx.beginPath();
+            ctx.moveTo(center.x+j, center.y)
+            ctx.lineTo(center.x+j + planet.r * Math.cos(planet.theta) / k, center.y + planet.r * Math.sin(planet.theta) / k);
+            var dx = (planet.r + planet.v_r * STEP * planet.mul) * Math.cos(planet.theta + planet.v_theta * STEP * planet.mul) / k;
+            var dy = (planet.r + planet.v_r * STEP * planet.mul) * Math.sin(planet.theta + planet.v_theta * STEP * planet.mul) / k;
+            ctx.lineTo(center.x+j + dx, center.y + dy);
+            ctx.closePath(); 
+            ctx.globalAlpha = 0.3;
+            ctx.fillStyle = planet.color;
+            ctx.strokeStyle = planet.color;
+            ctx.stroke();
+            ctx.fill();
+            ctx.globalAlpha = 1;
+        }
+
+        function noodles() {
+            if (show_track) show_track = false;
+
+            if (show_noodles == false) {
+                show_noodles = true;
+                document.getElementById('btnShowNoodles').value = "面積描画解除";
+                document.getElementById('btnShowTrack').disabled = true;
+            } else {
+                show_noodles = false;
+                document.getElementById('btnShowNoodles').value = "面積描画";
+                document.getElementById('btnShowTrack').disabled = false;
+                let table = document.getElementById('table');
+                let index = table.rows['length'];
+                if (index > 3) {
+                    let de1 = table.deleteRow(-1);
+                    let de2 = table.deleteRow(-1);
+                }
+            }
+
+            if (anime == false && animeOnce == false) {
+                draw();
+            }
+        }
+
+        // アニメーション開始ボタンが押されたとき
+        function startAnime() {
+            if (anime) {
+                anime = false;
+                document.getElementById('btnAnime').value = 'アニメーション再開';
+                document.getElementById('btnStep').disabled = false;
+            } else {
+                anime = true;
+                document.getElementById('btnAnime').value = 'アニメーション停止';
+                document.getElementById('btnStep').disabled = true;
+                draw();
+            }
+        }
+
+        // 1ステップ進むボタンが押されたとき
+        function stepOnce() {
+            animeOnce = true;
+            draw();
+        }
+
+        function speedUp() {
+            speed *= 2;
+            if (speed >= 128) {
+                document.getElementById('btnSpeedUp').disabled = true;
+            }
+            if (speed > 0.01) {
+                document.getElementById('btnSpeedDown').disabled = false;
+            }
+
+            if (speed >= 1) {
+                document.getElementById('btnStep').value = speed + "日進む";
+            } else {
+                var time = speed * 24;
+                if (time >= 1) {
+                    document.getElementById('btnStep').value = time + "時間進む";
+                } else {
+                    document.getElementById('btnStep').value = time * 60 + "分進む";
+                }
+            }
+        }
+
+        function speedDown() {
+            speed /= 2;
+            if (speed <= 0.01) {
+                document.getElementById('btnSpeedDown').disabled = true;
+            }
+            if (speed < 64) {
+                document.getElementById('btnSpeedUp').disabled = false;
+            }
+
+            if (speed >= 1) {
+                document.getElementById('btnStep').value = speed + "日進む";
+            } else {
+                var time = speed * 24;
+                if (time >= 1) {
+                    document.getElementById('btnStep').value = time + "時間進む";
+                } else {
+                    document.getElementById('btnStep').value = time * 60 + "分進む";
+                }
+            }
+        }
+
+        function calPosition(planet, m) {
+            let euler = {r:0, theta:0, v_r:0, v_theta:0};
+            let prev = {r:0, theta:0, v_r:0, v_theta:0};
+
+            // n回目の極座標と速度を代入
+            prev.r = planet.r;
+            prev.theta = planet.theta; 
+            prev.v_r = planet.v_r;
+            prev.v_theta = planet.v_theta;
+
+            //極座標と速度の計算(修正オイラー法)
+            euler.r = prev.r + speed * STEP * prev.v_r;
+            euler.theta = prev.theta + speed * STEP * prev.v_theta;
+            euler.v_r = prev.v_r + speed * STEP * (prev.r * prev.v_theta * prev.v_theta - G * m / (prev.r * prev.r));
+            euler.v_theta = prev.v_theta + speed * STEP * (- 2 * prev.v_r * prev.v_theta / prev.r);
+
+            //極座標と速度の更新
+            planet.r = prev.r + 0.5 * speed * STEP * (prev.v_r + euler.v_r);
+            planet.theta = prev.theta + 0.5 * speed * STEP * (prev.v_theta + euler.v_theta);
+            planet.v_r = prev.v_r + 0.5 * speed * STEP * (
+                prev.r * prev.v_theta * prev.v_theta - G * m / (prev.r * prev.r) + 
+                euler.r * euler.v_theta * euler.v_theta - G * m / (euler.r * euler.r)
+            );
+            planet.v_theta = prev.v_theta  + 0.5 * speed * STEP * (
+                - 2 * prev.v_r * prev.v_theta / prev.r + 
+                - 2 * euler.v_r * euler.v_theta / euler.r
+            );
+        }
+
+        function selectPlanet() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            select_planets = [];
+            zoom = 0;
+            for (let i = 0; i < document.planetSelection.planet.length; i++) {
+                if (document.planetSelection.planet[i].checked) {
+                    select_planets.push(document.planetSelection.planet[i].value);
+                    if (zoom < planets[document.planetSelection.planet[i].value].r / 230) {
+                        zoom = planets[document.planetSelection.planet[i].value].r / 230;
+                    }
+                }
+            }
+
+            if (select_planets.includes('jupiter') || select_planets.includes('saturn') || select_planets.includes('neptune') || select_planets.includes('uranus')) {
+                center.x = 250;
+                move = 500;
+            } else {
+                center.x = 500;
+                move = 0;
+            }
+
+            if (anime == false && animeOnce == false) {
+                draw();
+            }
+        }
+
+        function onlyEarth() {
+            for (let i = 0; i < document.planetSelection.planet.length; i++) {
+                if (document.planetSelection.planet[i].checked) {
+                    document.planetSelection.planet[i].checked = false;
+                }
+            }
+
+            document.planetSelection.planet[2].checked = true;
+            selectPlanet();
+        }
+
+        function allSelect() {
+            for (let i = 0; i < document.planetSelection.planet.length; i++) {
+                document.planetSelection.planet[i].checked = true;
+            }
+
+            selectPlanet();
+        }
+
+        function allNotSelect() {
+            for (let i = 0; i < document.planetSelection.planet.length; i++) {
+                document.planetSelection.planet[i].checked = false;
+            }
+
+            selectPlanet();
+        }
+        
+        init();
+    </script>
+</body>
+</html>
